@@ -50,5 +50,6 @@ func (c *Config) SetUser(name string) error {
 	if err != nil {
 		return err
 	}
+	fmt.Printf("Succesfully set user to: %s\n", name)
 	return nil
 }
