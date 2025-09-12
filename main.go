@@ -11,6 +11,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/raainshe/blog_aggregator/internal/config"
 	"github.com/raainshe/blog_aggregator/internal/database"
+	"github.com/raainshe/blog_aggregator/internal/rss"
 
 	_ "github.com/lib/pq"
 )
@@ -37,6 +38,9 @@ func init() {
 	cliCommands.cmd = make(map[string]func(*state, command) error)
 	cliCommands.register("login", handlerLogin)
 	cliCommands.register("register", handlerRegister)
+	cliCommands.register("reset", handleReset)
+	cliCommands.register("users", handleUsers)
+	cliCommands.register("agg", handleAgg)
 }
 
 func main() {
@@ -69,6 +73,52 @@ func main() {
 		os.Exit(1)
 	}
 
+}
+
+func handleAgg(s *state, cmd command) error {
+	if len(cmd.args) != 0 {
+		return fmt.Errorf("you have too many arguments")
+	}
+	_, err := rss.FetchFeed(context.Background(), "https://www.wagslane.dev/index.xml")
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func handleUsers(s *state, cmd command) error {
+	if len(cmd.args) != 0 {
+		return fmt.Errorf("you have too many arguments")
+	}
+
+	users, err := s.dbQueries.GetUsers(context.Background())
+	if err != nil {
+		return fmt.Errorf("failed to get users from database: %w", err)
+	}
+	if len(users) == 0 {
+		fmt.Println("There are currently no users in the databse. Use 'register <username>' to create a new user")
+	}
+
+	for i := len(users) - 1; i >= 0; i-- {
+		if users[i].Name == s.cfg.Current_User_Name {
+			fmt.Println("-", users[i].Name, "(current)")
+		} else {
+			fmt.Println("-", users[i].Name)
+		}
+	}
+	return nil
+}
+
+func handleReset(s *state, cmd command) error {
+	if len(cmd.args) != 0 {
+		return fmt.Errorf("you have too many arguments")
+	}
+	err := s.dbQueries.DeleteAllUsers(context.Background())
+	if err != nil {
+		return fmt.Errorf("failed to delete all users: %w", err)
+	}
+	fmt.Println("Deleted all users from databse")
+	return nil
 }
 
 func handlerRegister(s *state, cmd command) error {
