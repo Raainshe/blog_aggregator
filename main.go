@@ -41,12 +41,13 @@ func init() {
 	cliCommands.register("reset", handleReset)
 	cliCommands.register("users", handleUsers)
 	cliCommands.register("agg", handleAgg)
+	cliCommands.register("addfeed", handleAddfeed)
 }
 
 func main() {
 	args := os.Args
 	if len(args) < 2 {
-		fmt.Println("usage: gator <command> <?args[]?>")
+		fmt.Println("usage: gator <command> <args[]>")
 		os.Exit(1)
 		return
 	}
@@ -118,6 +119,31 @@ func handleReset(s *state, cmd command) error {
 		return fmt.Errorf("failed to delete all users: %w", err)
 	}
 	fmt.Println("Deleted all users from databse")
+	return nil
+}
+
+func handleAddfeed(s *state, cmd command) error {
+	if len(cmd.args) != 2 {
+		return fmt.Errorf("the add feed commands expects two arguments. Usage: addfeed <name> <url>")
+	}
+
+	currentUser, err := s.dbQueries.GetUser(context.Background(), s.cfg.Current_User_Name)
+	if err != nil {
+		return err
+	}
+	newFeed := database.CreateFeedParams{
+		ID:        uuid.New(),
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+		Name:      cmd.args[0],
+		Url:       cmd.args[1],
+		UserID:    currentUser.ID,
+	}
+	feed, err := s.dbQueries.CreateFeed(context.Background(), newFeed)
+	if err != nil {
+		return err
+	}
+	fmt.Println("Succesfully created feed:", feed.Name, "at", feed.CreatedAt)
 	return nil
 }
 
