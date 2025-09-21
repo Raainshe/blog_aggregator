@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"os"
+	"strconv"
 	"sync"
 	"time"
 
@@ -42,6 +43,7 @@ func init() {
 	cliCommands.register("users", handleUsers)
 	cliCommands.register("agg", handleAgg)
 	cliCommands.register("addfeed", handleAddfeed)
+	cliCommands.register("feeds", handleFeeds)
 }
 
 func main() {
@@ -74,6 +76,33 @@ func main() {
 		os.Exit(1)
 	}
 
+}
+
+func handleFeeds(s *state, cmd command) error {
+
+	if len(cmd.args) != 0 {
+		return fmt.Errorf("this command takes no arguments")
+	}
+
+	allFeeds, err := s.dbQueries.GetFeeds(context.Background())
+	if err != nil {
+		return fmt.Errorf("failed to get feed: %w", err)
+	}
+
+	var fmtFeed []string
+	for i, feed := range allFeeds {
+		user, err := s.dbQueries.GetUserbyID(context.Background(), feed.UserID)
+		if err != nil {
+			fmtFeed = append(fmtFeed, strconv.Itoa(i)+": N/A "+feed.Name+" "+feed.Url)
+		} else {
+			fmtFeed = append(fmtFeed, strconv.Itoa(i)+": "+user.Name+" "+feed.Name+feed.Url)
+		}
+	}
+
+	for _, feed := range fmtFeed {
+		println(feed)
+	}
+	return nil
 }
 
 func handleAgg(s *state, cmd command) error {
@@ -118,7 +147,11 @@ func handleReset(s *state, cmd command) error {
 	if err != nil {
 		return fmt.Errorf("failed to delete all users: %w", err)
 	}
-	fmt.Println("Deleted all users from databse")
+	err = s.dbQueries.DeleteAllFeeds(context.Background())
+	if err != nil {
+		return fmt.Errorf("failed to delete all feeds: %w", err)
+	}
+	fmt.Println("Deleted all data from databse")
 	return nil
 }
 
@@ -129,7 +162,7 @@ func handleAddfeed(s *state, cmd command) error {
 
 	currentUser, err := s.dbQueries.GetUser(context.Background(), s.cfg.Current_User_Name)
 	if err != nil {
-		return err
+		return fmt.Errorf("could not find user in database: %w", err)
 	}
 	newFeed := database.CreateFeedParams{
 		ID:        uuid.New(),
@@ -144,6 +177,7 @@ func handleAddfeed(s *state, cmd command) error {
 		return err
 	}
 	fmt.Println("Succesfully created feed:", feed.Name, "at", feed.CreatedAt)
+	fmt.Println(feed)
 	return nil
 }
 
